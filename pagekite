@@ -1,0 +1,80 @@
+#!/data/data/com.termux/files/usr/bin/bash
+
+# === Colors ===
+green="\e[32m"
+red="\e[31m"
+cyan="\e[36m"
+yellow="\e[33m"
+end="\e[0m"
+
+clear
+
+# === Display Banner ===
+echo -e "${yellow}====================================="
+echo -e "${green}  Free & Static website - Hosting Server  "
+echo -e "${yellow}====================================="
+echo -e "${cyan}Welcome to ZeroDark Nexus Hosting!${end}"
+
+# === Trap CTRL+C to Stop Servers ===
+cleanup() {
+  echo -e "\n${red}Exiting... Stopping servers...${end}"
+  kill $php_pid >/dev/null 2>&1
+  kill $kite_pid >/dev/null 2>&1
+  exit
+}
+trap cleanup SIGINT
+
+# === Subdomain Check ===
+if [ ! -f ".subdomain.txt" ]; then
+  echo -e "${red}Error: Subdomain not set! Please run install-setup.sh first.${end}"
+  exit 1
+else
+  SUBDOMAIN=$(cat .subdomain.txt)
+  echo -e "${green}Using Subdomain: $SUBDOMAIN${end}"
+fi
+
+# === Menu for Hosting Option ===
+echo -e "\n${cyan}Choose Hosting Option:${end}"
+echo -e "${green}[1]${end} Host from current directory"
+echo -e "${green}[2]${end} Host from custom folder"
+read -p "Your choice [1/2]: " choice
+
+# === Input Port ===
+read -p "Enter Port to Host (default: 8080): " PORT
+PORT=${PORT:-8080}
+
+# === Start PHP Server Based on Option ===
+if [ "$choice" == "1" ]; then
+  echo -e "${green}Starting PHP server in current directory on port $PORT...${end}"
+  php -S 127.0.0.1:$PORT > /dev/null 2>&1 &
+  php_pid=$!
+elif [ "$choice" == "2" ]; then
+  read -p "Enter full folder path (/sdcard/MySite): " path
+  if [ ! -d "$path" ]; then
+    echo -e "${red}Error: Folder not found!${end}"
+    exit 1
+  fi
+  cd "$path"
+  echo -e "${green}Starting PHP server from $path on port $PORT...${end}"
+  php -S 127.0.0.1:$PORT > /dev/null 2>&1 &
+  php_pid=$!
+else
+  echo -e "${red}Invalid choice. Exiting.${end}"
+  exit 1
+fi
+
+# === Start PageKite ===
+sleep 2
+echo -e "${green}Launching PageKite tunnel on port $PORT...${end}"
+python3 pagekite.py $PORT $SUBDOMAIN > /dev/null 2>&1 &
+kite_pid=$!
+sleep 3
+
+# === Success Message ===
+echo
+echo -e "${green}✅ Hosting Successful!${end}"
+echo -e "${cyan}Your Public URL:${end} ${green}https://$SUBDOMAIN${end}"
+echo -e "${red}Press CTRL+C to stop the server.${end}"
+
+# === Keep Script Alive ===
+while true; do sleep 1; done
